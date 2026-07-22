@@ -1,0 +1,15 @@
+{
+  "name": "zetamac-plus-plus",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Zetamac arithmetic game clone with keystroke-level error & timing telemetry",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
