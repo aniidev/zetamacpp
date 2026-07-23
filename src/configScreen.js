@@ -1,5 +1,6 @@
 import { h, clear } from './dom.js';
 import { defaultConfig, DURATIONS, enabledOperators } from './config.js';
+import { isVoiceSupported } from './voice.js';
 
 // Renders the pre-game config screen. Calls onStart(cfg) and onHistory().
 export function renderConfig(root, initialCfg, { onStart, onHistory }) {
@@ -83,6 +84,24 @@ export function renderConfig(root, initialCfg, { onStart, onHistory }) {
     startBtn.textContent = ok ? 'Start' : 'Enable an operation';
   }
 
+  // Voice input toggle — only offered where the Web Speech API exists.
+  const voiceSupported = isVoiceSupported();
+  const voiceCb = h('input', {
+    type: 'checkbox', class: 'op-toggle', checked: cfg.voiceInput && voiceSupported,
+    disabled: !voiceSupported,
+  });
+  voiceCb.addEventListener('change', () => { cfg.voiceInput = voiceCb.checked; });
+  const voiceRow = h('div', { class: 'op-row voice-row' }, [
+    h('label', { class: 'op-enable' }, [
+      voiceCb,
+      h('span', {}, '🎤 Voice answers'),
+    ]),
+    h('span', { class: 'derived-note' },
+      voiceSupported
+        ? 'Speak your answer instead of typing (you can still type as a fallback)'
+        : 'Not supported in this browser — use Chrome or Edge'),
+  ]);
+
   const screen = h('div', { class: 'screen config-screen' }, [
     h('header', { class: 'app-header' }, [
       h('h1', { class: 'app-title' }, 'Zetamac++'),
@@ -94,6 +113,7 @@ export function renderConfig(root, initialCfg, { onStart, onHistory }) {
         h('span', { class: 'op-enable-label' }, 'Duration'),
         durSelect,
       ]),
+      voiceRow,
     ]),
     h('div', { class: 'config-actions' }, [
       startBtn,

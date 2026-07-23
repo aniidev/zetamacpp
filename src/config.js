@@ -10,6 +10,7 @@ export const DEFAULT_DURATION = 120;
 export function defaultConfig() {
   return {
     duration: DEFAULT_DURATION,
+    voiceInput: false, // speak answers instead of typing (Chrome/Edge)
     addition: {
       enabled: true,
       a: 2, b: 100, // first operand range

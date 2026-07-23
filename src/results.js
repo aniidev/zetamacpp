@@ -47,6 +47,20 @@ function questionDetail(q) {
     rows.push(h('div', { class: 'detail-clean' }, 'Clean — no corrections.'));
   }
 
+  // voice trace (present when answered by voice)
+  if (q.voiceResults && q.voiceResults.length) {
+    const vlist = q.voiceResults.map((v) => {
+      const rel = Math.round(v.t - q.shownAt);
+      const hit = v.value === q.answer;
+      return h('span', {
+        class: hit ? 'keystroke voice-hit' : 'keystroke',
+        title: `${rel}ms`,
+      }, `“${v.transcript}” → ${v.value}`);
+    });
+    rows.push(h('div', { class: 'detail-sub' }, `🎤 Voice trace (${q.voiceResults.length})`));
+    rows.push(h('div', { class: 'keystroke-trace' }, vlist));
+  }
+
   // keystroke trace
   const trace = q.keystrokes.map((k) => {
     const label = k.key === 'Backspace' ? '⌫' : k.key === 'Delete' ? '⌦' : k.key;

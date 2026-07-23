@@ -2,6 +2,7 @@ import { h, clear, fmtClock } from './dom.js';
 import { generateQuestion, formatQuestion } from './questions.js';
 import { extractCorrections } from './telemetry.js';
 import { saveSession, newSessionId } from './storage.js';
+import { createVoiceRecognizer, isVoiceSupported } from './voice.js';
 
 // Runs one game session. On completion, saves to localStorage and calls
 // onDone(session).
@@ -29,6 +30,9 @@ export function startGame(root, cfg, onDone) {
     'aria-label': 'answer',
   });
 
+  const voiceOn = cfg.voiceInput && isVoiceSupported();
+  const voiceStatus = h('div', { class: 'voice-status' }, voiceOn ? '🎤 starting…' : '');
+
   const screen = h('div', { class: 'screen game-screen' }, [
     h('div', { class: 'game-hud' }, [
       h('div', { class: 'hud-block' }, [h('div', { class: 'hud-caption' }, 'Seconds left'), timerEl]),
@@ -36,7 +40,10 @@ export function startGame(root, cfg, onDone) {
     ]),
     h('div', { class: 'game-play' }, [
       h('div', { class: 'game-eq' }, [questionEl, h('span', { class: 'game-eq-sep' }, '='), input]),
-      h('div', { class: 'game-hint' }, 'Type the answer — it advances automatically. No Enter needed.'),
+      h('div', { class: 'game-hint' }, voiceOn
+        ? 'Speak your answer — or type it. Advances automatically, no Enter needed.'
+        : 'Type the answer — it advances automatically. No Enter needed.'),
+      voiceOn ? voiceStatus : null,
       h('button', { class: 'btn btn-ghost btn-end', onclick: () => finish() }, 'End early'),
     ]),
   ]);
@@ -46,12 +53,14 @@ export function startGame(root, cfg, onDone) {
   // --- Per-question state ----------------------------------------------
   let current = null;      // { operand1, operand2, operator, answer }
   let shownAt = 0;         // performance.now() when question rendered
-  let firstKeyAt = null;   // performance.now() of first keystroke
+  let firstKeyAt = null;   // performance.now() of first keystroke / spoken word
   let keystrokes = [];     // [{ key, t, fieldAfter }]
+  let voiceResults = [];   // [{ value, transcript, t }] when answered by voice
 
   function nextQuestion() {
     current = generateQuestion(cfg);
     keystrokes = [];
+    voiceResults = [];
     firstKeyAt = null;
     input.value = '';
     questionEl.textContent = formatQuestion(current);
@@ -77,6 +86,8 @@ export function startGame(root, cfg, onDone) {
       thinkTime: firstKeyAt != null ? firstKeyAt - shownAt : now - shownAt,
       totalTime: now - shownAt,
       keystrokes,
+      voiceResults: voiceResults.slice(),
+      inputMode: voiceResults.length ? 'voice' : 'keyboard',
       corrections: extractCorrections(keystrokes, ctx),
     };
     session.questions.push(record);
@@ -118,6 +129,37 @@ export function startGame(root, cfg, onDone) {
     if (e.key === 'Enter') e.preventDefault();
   });
 
+  // --- Voice input ------------------------------------------------------
+  // A recognized spoken number is shown in the field and, if it equals the
+  // answer, advances the question. It bypasses the keystroke handler, so voice
+  // answers carry a voiceResults trace instead of keystrokes/corrections.
+  function handleVoiceNumber(num, transcript) {
+    if (finished || current == null) return;
+    const t = performance.now();
+    if (firstKeyAt == null) firstKeyAt = t;
+    voiceResults.push({ value: num, transcript, t });
+    input.value = String(num);
+    if (num === current.answer) {
+      voiceStatus.textContent = `🎤 “${transcript}” ✓`;
+      commitQuestion();
+    } else {
+      voiceStatus.textContent = `🎤 heard “${transcript}” → ${num}`;
+    }
+  }
+
+  let voice = null;
+  if (voiceOn) {
+    voice = createVoiceRecognizer({
+      onNumber: handleVoiceNumber,
+      onStatus: (state) => {
+        if (state === 'listening') voiceStatus.textContent = '🎤 listening…';
+        else if (state === 'denied') voiceStatus.textContent = '🎤 mic blocked — type your answers';
+        else if (state === 'error') voiceStatus.textContent = '🎤 voice error — type your answers';
+      },
+    });
+    voice.start();
+  }
+
   // --- Countdown --------------------------------------------------------
   const startTime = performance.now();
   const durationMs = cfg.duration * 1000;
@@ -132,6 +174,7 @@ export function startGame(root, cfg, onDone) {
     if (finished) return;
     finished = true;
     clearInterval(tick);
+    if (voice) voice.stop();
     timerEl.textContent = '0:00';
     saveSession(session);
     onDone(session);

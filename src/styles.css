@@ -171,6 +171,15 @@ body {
 }
 .game-input:focus { border-color: var(--accent); }
 .game-hint { color: var(--muted); margin-top: 28px; font-size: 0.95rem; }
+.voice-status {
+  margin-top: 14px;
+  min-height: 1.4em;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.voice-row .op-enable { min-width: 160px; }
 .btn-end { margin-top: 32px; }
 
 /* ---------- results ---------- */
@@ -309,5 +318,7 @@ body {
   font-size: 0.9rem;
   cursor: default;
 }
+
+.keystroke.voice-hit { border-color: var(--ok); color: var(--ok); font-weight: 600; }
 
 .history-row td { vertical-align: middle; }
